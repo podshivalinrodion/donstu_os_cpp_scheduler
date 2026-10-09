@@ -75,6 +75,7 @@ void printGantt(const SimResult& r) {
   for (auto& [pid, span] : r.gantt) {
     std::cout << "  [" << span.first << "-" << span.second << ") ";
     if (pid == -1) std::cout << "IDLE\n";
+      else if (pid == -2) std::cout << "CS\n";
     else std::cout << "P" << pid << "\n";
   }
   std::cout << "\n";
@@ -180,6 +181,24 @@ int main() {
         std::cout << "HRRN: ";
         printResult(r2);
         printGantt(r2);
+    }
+
+    
+    {
+        auto set = makeTestSet();
+        std::cout << "\n=== Влияние switchCost на RR ===\n";
+        std::cout << "q | wait(0) turn(0) | wait(1) turn(1) | CPU%(1) ovh%(1)\n";
+        for (std::uint64_t q : {1, 2, 4, 8}) {
+            RrScheduler rr0(set, q);
+            SimResult r0 = runSimulation(rr0, 100000, 0);
+            RrScheduler rr1(set, q);
+            SimResult r1 = runSimulation(rr1, 100000, 1);
+            std::cout << q << " | "
+                      << std::fixed << std::setprecision(2)
+                      << r0.avgWaiting << " " << r0.avgTurnaround << " | "
+                      << r1.avgWaiting << " " << r1.avgTurnaround << " | "
+                      << r1.cpuUtilization << " " << r1.overheadPercent << "\n";
+        }
     }
 
     return 0;
