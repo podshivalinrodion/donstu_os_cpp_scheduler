@@ -11,6 +11,7 @@
 #include <vector>
 #include <memory>
 #include "testsets.h"
+#include "hrrn.h"
 
 std::vector<Process> makeTestSet() {
   std::vector<Process> procs;
@@ -79,6 +80,27 @@ void printGantt(const SimResult& r) {
   std::cout << "\n";
 }
 
+
+std::vector<Process> makeHrrnTestSet() {
+    std::vector<Process> procs;
+    auto add = [&](int pid, const std::string& name,
+                   std::uint64_t arrival, std::uint64_t burst, int priority) {
+        Process p;
+        p.pid = pid; p.name = name;
+        p.arrivalTime = arrival;
+        p.burstTime = burst;
+        p.remainingTime = burst;
+        p.priority = priority;
+        p.dynamicPriority = priority;
+        procs.push_back(p);
+    };
+    add(1, "A",  0, 4, 1);
+    add(2, "L",  1, 6, 1);
+    add(3, "S1", 4, 2, 1);
+    add(4, "S2", 5, 1, 1);
+    return procs;
+}
+
 int main() {
   std::cout << "Case 1: CPU-bound\n";
   {
@@ -141,6 +163,23 @@ int main() {
             std::cout << "Загруженный: ";
             printResult(runSimulation(b));
         }
+    }
+
+    
+    {
+        auto set = makeHrrnTestSet();
+        std::cout << "\n=== Сравнение SJF и HRRN на наборе из 4 процессов ===\n";
+        SjfScheduler sjf(set);
+        SimResult r1 = runSimulation(sjf);
+        std::cout << "SJF:  ";
+        printResult(r1);
+        printGantt(r1);
+
+        HrrnScheduler hrrn(set);
+        SimResult r2 = runSimulation(hrrn);
+        std::cout << "HRRN: ";
+        printResult(r2);
+        printGantt(r2);
     }
 
     return 0;
