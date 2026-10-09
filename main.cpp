@@ -13,6 +13,7 @@
 #include "testsets.h"
 #include "hrrn.h"
 #include <functional>
+#include "edf.h"
 
 std::vector<Process> makeTestSet() {
   std::vector<Process> procs;
@@ -172,6 +173,39 @@ void runExperiment10() {
     printTable("Average turnaround time", [](const SimResult& r) { return r.avgTurnaround; });
     printTable("Average response time", [](const SimResult& r) { return r.avgResponse; });
     printTable("CPU utilization %", [](const SimResult& r) { return r.cpuUtilization; });
+}
+
+
+void printDeadlines(const std::vector<Process>& procs) {
+    for (const auto& p : procs) {
+        std::cout << p.name << ": finish=" << p.finishTime << " deadline=" << p.deadline
+                  << (p.finishTime <= p.deadline ? " OK" : " MISSED") << "\n";
+    }
+}
+
+std::vector<Process> makeDeadlineSet(bool feasible) {
+    std::vector<Process> v;
+    auto add = [&](int pid, const std::string& name, std::uint64_t arrival,
+                   std::uint64_t burst, std::uint64_t deadline) {
+        Process p;
+        p.pid = pid; p.name = name;
+        p.arrivalTime = arrival;
+        p.burstTime = burst;
+        p.remainingTime = burst;
+        p.deadline = deadline;
+        v.push_back(p);
+    };
+    if (feasible) {
+        add(1, "E1", 0, 3, 7);
+        add(2, "E2", 1, 2, 4);
+        add(3, "E3", 2, 2, 9);
+        add(4, "E4", 4, 3, 10);
+    } else {
+        add(1, "F1", 0, 4, 5);
+        add(2, "F2", 1, 3, 5);
+        add(3, "F3", 2, 2, 6);
+    }
+    return v;
 }
 
 int main() {
@@ -334,6 +368,44 @@ int main() {
     }
 
         runExperiment10();
+
+    
+    {
+        auto set = makeTestSet();
+        std::cout << "\n=== Многоядерный режим ===\n";
+        for (const char* label : {"FCFS", "SJF", "SRTN"}) {
+            for (int cores : {1, 2, 4}) {
+                std::unique_ptr<Scheduler> s;
+                if (std::string(label) == "FCFS") s = std::make_unique<FcfsScheduler>(set);
+                else if (std::string(label) == "SJF") s = std::make_unique<SjfScheduler>(set);
+                else s = std::make_unique<SrtnScheduler>(set);
+                SimResult r = runSimulationMulti(*s, cores);
+                std::cout << label << " x" << cores << ": ";
+                printResult(r);
+                std::cout << "  totalTicks=" << r.totalTicks << "\n";
+            }
+        }
+    }
+
+    
+    {
+        std::cout << "\n=== EDF ===\n";
+        std::cout << "\n--- Набор E (выполнимый) ---\n";
+        auto setE = makeDeadlineSet(true);
+        EdfScheduler edfE(setE);
+        SimResult rE = runSimulation(edfE);
+        printResult(rE);
+        printGantt(rE);
+        printDeadlines(edfE.processes());
+
+        std::cout << "\n--- Набор F (невыполнимый) ---\n";
+        auto setF = makeDeadlineSet(false);
+        EdfScheduler edfF(setF);
+        SimResult rF = runSimulation(edfF);
+        printResult(rF);
+        printGantt(rF);
+        printDeadlines(edfF.processes());
+    }
 
     return 0;
 }
