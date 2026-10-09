@@ -12,6 +12,7 @@
 #include <memory>
 #include "testsets.h"
 #include "hrrn.h"
+#include <functional>
 
 std::vector<Process> makeTestSet() {
   std::vector<Process> procs;
@@ -123,6 +124,54 @@ std::vector<Process> makeConvoySet() {
     add(3, "IO2",  2,  6, 1, {{1, 4}, {2, 4}, {3, 4}, {4, 4}, {5, 4}});
     add(4, "CPU2", 3, 12, 3);
     return procs;
+}
+
+
+using Factory = std::function<std::unique_ptr<Scheduler>(const std::vector<Process>&)>;
+
+template <class T, class... Args>
+Factory factory(Args... args) {
+    return [=](const std::vector<Process>& s) { return std::make_unique<T>(s, args...); };
+}
+
+void runExperiment10() {
+    std::vector<std::pair<std::string, Factory>> algos = {
+        {"FCFS", factory<FcfsScheduler>()},
+        {"SJF", factory<SjfScheduler>()},
+        {"SRTN", factory<SrtnScheduler>()},
+        {"HRRN", factory<HrrnScheduler>()},
+        {"RR q=4", factory<RrScheduler>(4)},
+        {"Prio", factory<PriorityScheduler>(false, false)},
+        {"Prio+aging", factory<PriorityScheduler>(true, true)},
+        {"MLFQ", factory<MlfqScheduler>()},
+    };
+    const int sizes[5] = {12, 14, 16, 18, 20};
+
+    auto printTable = [&](const std::string& title,
+                          std::function<double(const SimResult&)> metric) {
+        std::cout << "\n" << title << "\n";
+        std::cout << std::left << std::setw(12) << "Algorithm" << std::right;
+        for (int i = 1; i <= 5; ++i) std::cout << std::setw(9) << ("set " + std::to_string(i));
+        std::cout << std::setw(9) << "average" << "\n";
+        for (auto& [label, make] : algos) {
+            std::cout << std::left << std::setw(12) << label << std::right;
+            double sum = 0;
+            for (unsigned seed = 1; seed <= 5; ++seed) {
+                auto set = makeRandomSet(seed, sizes[seed - 1]);
+                auto sched = make(set);
+                SimResult r = runSimulation(*sched);
+                double v = metric(r);
+                sum += v;
+                std::cout << std::setw(9) << std::fixed << std::setprecision(2) << v;
+            }
+            std::cout << std::setw(9) << sum / 5 << "\n";
+        }
+    };
+
+    printTable("Average waiting time", [](const SimResult& r) { return r.avgWaiting; });
+    printTable("Average turnaround time", [](const SimResult& r) { return r.avgTurnaround; });
+    printTable("Average response time", [](const SimResult& r) { return r.avgResponse; });
+    printTable("CPU utilization %", [](const SimResult& r) { return r.cpuUtilization; });
 }
 
 int main() {
@@ -273,6 +322,18 @@ int main() {
         printGantt(rm);
         printProcessTable(mlfq.processes());
     }
+
+    
+    {
+        const int sizes[5] = {12, 14, 16, 18, 20};
+        for (unsigned seed = 1; seed <= 5; ++seed) {
+            saveSet("sets/set" + std::to_string(seed) + ".txt",
+                    makeRandomSet(seed, sizes[seed - 1]));
+        }
+        std::cout << "\n5 наборов сохранены в sets/\n";
+    }
+
+        runExperiment10();
 
     return 0;
 }

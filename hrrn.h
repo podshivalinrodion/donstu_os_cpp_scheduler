@@ -22,7 +22,6 @@ public:
       if (p.state == ProcessState::NEW && p.arrivalTime <= tick) {
         p.state = ProcessState::READY;
         ready_.push_back(p.pid);
-        onProcessReady(p.pid, tick);
       }
     }
   }
@@ -48,8 +47,7 @@ public:
   }
 
   void onProcessReady(int pid, std::uint64_t) override {
-    // процесс уже добавлен в onTick
-    (void)pid;
+    ready_.push_back(pid);
   }
 
   void onProcessFinished(int pid, std::uint64_t) override {
