@@ -102,6 +102,29 @@ std::vector<Process> makeHrrnTestSet() {
     return procs;
 }
 
+
+std::vector<Process> makeConvoySet() {
+    std::vector<Process> procs;
+    auto add = [&](int pid, const std::string& name, std::uint64_t arrival,
+                   std::uint64_t burst, int priority,
+                   std::vector<IoBlock> io = {}) {
+        Process p;
+        p.pid = pid; p.name = name;
+        p.arrivalTime = arrival;
+        p.burstTime = burst;
+        p.remainingTime = burst;
+        p.priority = priority;
+        p.dynamicPriority = priority;
+        p.ioBlocks = std::move(io);
+        procs.push_back(p);
+    };
+    add(1, "CPU1", 0, 20, 2);
+    add(2, "IO1",  1,  6, 1, {{1, 4}, {2, 4}, {3, 4}, {4, 4}, {5, 4}});
+    add(3, "IO2",  2,  6, 1, {{1, 4}, {2, 4}, {3, 4}, {4, 4}, {5, 4}});
+    add(4, "CPU2", 3, 12, 3);
+    return procs;
+}
+
 int main() {
   std::cout << "Case 1: CPU-bound\n";
   {
@@ -214,6 +237,41 @@ int main() {
                       << " " << std::setw(3) << r.contextSwitches << " "
                       << std::string(r.contextSwitches, '#') << "\n";
         }
+    }
+
+    
+    {
+        auto set = makeConvoySet();
+        std::cout << "\n=== Эффект конвоя ===\n";
+
+        std::cout << "\n--- FCFS ---\n";
+        FcfsScheduler fcfs(set);
+        SimResult rf = runSimulation(fcfs);
+        printResult(rf);
+        printGantt(rf);
+        printProcessTable(fcfs.processes());
+
+        std::cout << "\n--- SRTN ---\n";
+        SrtnScheduler srtn(set);
+        SimResult rs = runSimulation(srtn);
+        printResult(rs);
+
+        std::cout << "\n--- RR (q=4) ---\n";
+        RrScheduler rr(set, 4);
+        SimResult rr4 = runSimulation(rr);
+        printResult(rr4);
+
+        std::cout << "\n--- Priority (preemptive) + aging ---\n";
+        PriorityScheduler prio(set, true, true);
+        SimResult rp = runSimulation(prio);
+        printResult(rp);
+
+        std::cout << "\n--- MLFQ ---\n";
+        MlfqScheduler mlfq(set);
+        SimResult rm = runSimulation(mlfq);
+        printResult(rm);
+        printGantt(rm);
+        printProcessTable(mlfq.processes());
     }
 
     return 0;
