@@ -126,5 +126,22 @@ int main() {
         printProcessTable(rr.processes());
     }
 
+    
+    {
+        auto set = makeTestSet();
+        saveSet("sets/set_basic.txt", set);
+        std::vector<Process> loaded;
+        if (!loadSet("sets/set_basic.txt", loaded)) {
+            std::cerr << "Не удалось загрузить sets/set_basic.txt\n";
+        } else {
+            FcfsScheduler a(set), b(loaded);
+            std::cout << "\nСравнение FCFS: исходный набор vs загруженный\n";
+            std::cout << "Исходный:    ";
+            printResult(runSimulation(a));
+            std::cout << "Загруженный: ";
+            printResult(runSimulation(b));
+        }
+    }
+
     return 0;
 }
