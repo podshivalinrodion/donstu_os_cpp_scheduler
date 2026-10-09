@@ -407,5 +407,15 @@ int main() {
         printDeadlines(edfF.processes());
     }
 
+    
+    {
+        auto set = makeTestSet();
+        RrScheduler rr(set, 2);
+        saveGanttCsv("results/gantt_rr2.csv", runSimulation(rr));
+        MlfqScheduler mlfq(set);
+        saveGanttCsv("results/gantt_mlfq.csv", runSimulation(mlfq));
+        std::cout << "\nCSV-диаграммы сохранены в results/\n";
+    }
+
     return 0;
 }
